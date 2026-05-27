@@ -325,9 +325,12 @@
   @media (max-width: 920px) {
     .grid.kpi { grid-template-columns: repeat(2,1fr); }
     .grid.two { grid-template-columns: 1fr; }
-    .sidebar { width: 64px; padding: 20px 8px; }
-    .brand span, .brand small, .nav button span, .sidebar-foot .btn span { display: none; }
-    .main { padding: 24px 18px 50px; }
+    /* env(safe-area-inset-*) houdt de inhoud onder de statusbalk/notch vandaan op de iPhone */
+    .sidebar { width: 64px; padding: calc(20px + env(safe-area-inset-top)) 8px calc(20px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left)); }
+    .brand div span, .brand small, .nav button span:not(.ic), .sidebar-foot .btn span:not(.ic) { display: none; }
+    .nav button { justify-content: center; }
+    .sidebar-foot .btn { justify-content: center; }
+    .main { padding: calc(24px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) calc(50px + env(safe-area-inset-bottom)) 18px; }
     .card { overflow-x: auto; }                 /* brede tabellen horizontaal scrollen */
   }
 
@@ -335,10 +338,9 @@
   @media (max-width: 560px) {
     .grid.kpi { grid-template-columns: 1fr; }
     input, select, textarea { font-size: 16px; }   /* voorkomt automatisch inzoomen op iOS */
-    .main { padding: 16px 12px calc(40px + env(safe-area-inset-bottom)); }
+    .main { padding: calc(14px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) 12px; }
     .page-head h1 { font-size: 24px; }
     .modal { padding: 20px 16px; }
-    .sidebar { padding-top: calc(20px + env(safe-area-inset-top)); }
   }
 </style>
 </head>
@@ -363,8 +365,8 @@
       <button data-view="instellingen"><span class="ic">⚙️</span><span>Instellingen</span></button>
     </nav>
     <div class="sidebar-foot">
-      <button class="btn sm" onclick="exportData()"><span>⬇ Back-up exporteren</span></button>
-      <button class="btn sm" onclick="startImport()"><span>⬆ Back-up importeren</span></button>
+      <button class="btn sm" onclick="exportData()"><span class="ic">⬇</span><span>Back-up exporteren</span></button>
+      <button class="btn sm" onclick="startImport()"><span class="ic">⬆</span><span>Back-up importeren</span></button>
       <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
     </div>
   </aside>

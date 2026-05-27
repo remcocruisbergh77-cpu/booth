@@ -463,11 +463,12 @@ function saveLocal() {
     localStorage.setItem(STORE_KEY, raw);
   }
 }
-let _pushTimer;
+let _pushTimer, localDirty = false;
 function save() {
   saveLocal();
   // wijziging (vertraagd) naar de cloud sturen als er een sync-code is ingesteld
   if ((data.settings.synccode||'').trim()) {
+    localDirty = true;
     clearTimeout(_pushTimer);
     _pushTimer = setTimeout(() => { cloudPush().catch(e=>console.error('Sync-upload mislukt', e)); }, 1500);
   }
@@ -488,6 +489,17 @@ async function cloudPush() {
   if (!code) return;
   const ts = await cloudCall('booth_save', { p_code: code, p_data: data });
   if (typeof ts === 'string') localStorage.setItem('booth_last_sync', ts);
+  localDirty = false;
+}
+// Periodiek/bij terugkeer: haalt de cloud op en neemt 'm over als die nieuwer is.
+// Slaat over als er nog een eigen wijziging op upload wacht (om die niet te overschrijven).
+async function cloudCheck() {
+  const code = (data.settings.synccode||'').trim();
+  if (!code || localDirty || !navigator.onLine) return;
+  try {
+    const row = await cloudPull();
+    if (row && row.updated_at > (localStorage.getItem('booth_last_sync')||'')) adoptCloud(row);
+  } catch(e) { /* stil */ }
 }
 async function cloudPull() {
   const code = (data.settings.synccode||'').trim();
@@ -1653,6 +1665,11 @@ document.getElementById('nav').addEventListener('click', e=>{
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
 loadData().then(()=>{ render(); syncNow(true); });   // bij opstart stil synchroniseren als er een code is
+
+// Volledig automatisch bijwerken: periodiek ophalen + direct bij terugkeer naar de app of online komen.
+setInterval(cloudCheck, 30000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cloudCheck(); });
+window.addEventListener('online', cloudCheck);
 
 // PWA: registreer de service worker (alleen in de browser/op de iPhone, niet in de Mac-app).
 if(!runningInTauri && 'serviceWorker' in navigator){

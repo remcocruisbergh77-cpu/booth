@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Booth — DJ Boekhouding</title>
+<meta name="theme-color" content="#0c0c10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Booth">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  /* ===================================================================
+     BOOTH — Lokale boekhoud-app voor DJ's
+     Alle data wordt opgeslagen in je browser (localStorage).
+     Gebruik Export voor een echte back-up naar bestand.
+  =================================================================== */
+
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg:        #0c0c10;
+    --panel:     #15151c;
+    --panel-2:   #1c1c26;
+    --line:      #2a2a38;
+    --ink:       #ececf2;
+    --ink-dim:   #8a8a9a;
+    --ink-faint: #56566a;
+    --accent:    #d6ff3f;   /* lasergroen */
+    --accent-2:  #ff5c8a;   /* magenta */
+    --blue:      #5fa8ff;
+    --warn:      #ffb84d;
+    --ok:        #4fd98a;
+    --radius:    14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse 60% 50% at 80% -10%, rgba(214,255,63,.08), transparent),
+      radial-gradient(ellipse 50% 40% at 10% 110%, rgba(255,92,138,.07), transparent);
+    color: var(--ink);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100%;
+  }
+
+  /* ---- Layout ---- */
+  .app { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 230px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    padding: 26px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .brand {
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -.5px;
+    padding: 0 10px 4px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .brand .dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 14px var(--accent);
+    animation: pulse 2.4s infinite ease-in-out;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .brand small {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ink-faint);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .nav { margin-top: 22px; display: flex; flex-direction: column; gap: 2px; }
+  .nav button {
+    background: none; border: none; cursor: pointer;
+    color: var(--ink-dim);
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 9px;
+    display: flex; align-items: center; gap: 11px;
+    transition: all .15s ease;
+  }
+  .nav button:hover { background: var(--panel-2); color: var(--ink); }
+  .nav button.active {
+    background: var(--accent);
+    color: #0c0c10;
+  }
+  .nav button .ic { font-size: 16px; width: 18px; text-align: center; }
+
+  .sidebar-foot {
+    margin-top: auto;
+    display: flex; flex-direction: column; gap: 7px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  /* ---- Main ---- */
+  .main { flex: 1; padding: 34px 40px 60px; max-width: 1180px; }
+
+  .page-head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 26px; flex-wrap: wrap; gap: 14px;
+  }
+  .page-head h1 {
+    font-size: 30px; font-weight: 800; letter-spacing: -.8px;
+  }
+  .page-head .sub { color: var(--ink-dim); font-size: 13px; margin-top: 3px; }
+
+  /* ---- Buttons ---- */
+  .btn {
+    font-family: inherit; font-weight: 600; font-size: 13.5px;
+    cursor: pointer; border-radius: 9px;
+    padding: 9px 16px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--ink);
+    transition: all .15s ease;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn:hover { border-color: var(--ink-faint); transform: translateY(-1px); }
+  .btn.primary {
+    background: var(--accent); color: #0c0c10; border-color: var(--accent);
+  }
+  .btn.primary:hover { box-shadow: 0 6px 20px rgba(214,255,63,.25); }
+  .btn.ghost { background: none; }
+  .btn.danger { color: var(--accent-2); border-color: rgba(255,92,138,.3); }
+  .btn.danger:hover { background: rgba(255,92,138,.1); }
+  .btn.sm { padding: 6px 11px; font-size: 12px; }
+
+  /* ---- Cards ---- */
+  .grid { display: grid; gap: 16px; }
+  .grid.kpi { grid-template-columns: repeat(4, 1fr); }
+  .grid.two { grid-template-columns: 1fr 1fr; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card h3 {
+    font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--ink-dim);
+    margin-bottom: 14px;
+  }
+
+  .kpi-card .label {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--ink-dim);
+  }
+  .kpi-card .value {
+    font-family: 'Spline Sans Mono', monospace;
+    font-size: 27px; font-weight: 600; margin-top: 9px;
+    letter-spacing: -1px;
+  }
+  .kpi-card .value.accent { color: var(--accent); }
+  .kpi-card .value.pink   { color: var(--accent-2); }
+  .kpi-card .value.blue   { color: var(--blue); }
+  .kpi-card .meta { font-size: 12px; color: var(--ink-faint); margin-top: 6px; }
+
+  /* ---- Tables ---- */
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left; font-size: 10.5px; font-weight: 600;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--ink-faint); padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  td {
+    padding: 11px 10px; font-size: 13.5px;
+    border-bottom: 1px solid var(--panel-2);
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--panel-2); }
+  .mono { font-family: 'Spline Sans Mono', monospace; }
+  .num  { font-family: 'Spline Sans Mono', monospace; text-align: right; }
+
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 3px 9px; border-radius: 20px;
+  }
+  .tag.paid   { background: rgba(79,217,138,.15);  color: var(--ok); }
+  .tag.unpaid { background: rgba(255,184,77,.15);  color: var(--warn); }
+  .tag.v21    { background: rgba(95,168,255,.13);  color: var(--blue); }
+  .tag.v9     { background: rgba(214,255,63,.13);  color: var(--accent); }
+  .tag.v0     { background: var(--panel-2);        color: var(--ink-dim); }
+
+  .empty {
+    text-align: center; padding: 46px 20px;
+    color: var(--ink-faint); font-size: 13.5px;
+  }
+  .empty .big { font-size: 30px; margin-bottom: 8px; }
+
+  /* ---- Forms ---- */
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 140px; }
+  .field label {
+    font-size: 11px; font-weight: 600; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--ink-dim);
+  }
+  input, select, textarea {
+    font-family: inherit; font-size: 13.5px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 9px 11px;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  input::placeholder { color: var(--ink-faint); }
+
+  /* ---- Modal ---- */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(6,6,9,.78);
+    backdrop-filter: blur(3px);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 50px 20px; z-index: 50;
+    overflow-y: auto;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    width: 100%; max-width: 540px;
+    padding: 26px;
+  }
+  .modal h2 { font-size: 21px; font-weight: 800; margin-bottom: 18px; }
+  .modal-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ---- Misc ---- */
+  .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .icon-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--ink-faint); font-size: 14px; padding: 4px 6px;
+    border-radius: 6px;
+  }
+  .icon-btn:hover { color: var(--accent-2); background: var(--panel-2); }
+  .section-title {
+    font-size: 13px; font-weight: 700; letter-spacing: .3px;
+    margin: 22px 0 12px; color: var(--ink-dim);
+  }
+  .hidden { display: none !important; }
+
+  /* Tijdens PDF-export: toon alleen de factuur op het scherm (createPDF legt de schermweergave vast).
+     Breedte op A4-staand (794px @96dpi) zodat het vastleggebied klopt. */
+  body.exporting-pdf { background: #fff !important; }
+  body.exporting-pdf .app { display: none !important; }
+  body.exporting-pdf #printArea { display: block !important; width: 794px; }
+  body.exporting-pdf .invoice-doc { width: 794px; min-height: 1123px; box-sizing: border-box; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: #0c0c10;
+    font-weight: 700; font-size: 13.5px;
+    padding: 12px 22px; border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
+    z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+  .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    font-size: 12px; font-weight: 600; padding: 6px 12px;
+    border-radius: 20px; border: 1px solid var(--line);
+    background: var(--panel-2); cursor: pointer; color: var(--ink-dim);
+  }
+  .pill.active { background: var(--accent); color: #0c0c10; border-color: var(--accent); }
+
+  .bedrag-preview {
+    font-family: 'Spline Sans Mono', monospace;
+    font-size: 12px; color: var(--ink-dim);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 11px; margin-bottom: 12px;
+  }
+  .bedrag-preview strong { color: var(--ink); font-weight: 600; }
+
+  /* ---- Invoice print ---- */
+  .invoice-doc {
+    background: #fff; color: #1a1a1a; padding: 48px;
+    border-radius: 8px; font-size: 13px;
+  }
+  .invoice-doc h2 { color: #1a1a1a; }
+  .invoice-doc table td, .invoice-doc table th { border-color: #e5e5e5; color:#1a1a1a; }
+  .invoice-doc table th { color: #888; }
+
+  @media print {
+    @page { margin: 0; }            /* verwijdert browser-kop/voet: paginanr, datum/tijd, bestandspad */
+    html, body { margin: 0; background: #fff !important; }
+    .app { display: none !important; }            /* alleen de factuur printen, niet de app */
+    #printArea { display: block !important; position: static; width: 100%; }
+    .invoice-doc { border-radius: 0; padding: 22mm 18mm; }   /* eigen marge i.p.v. de paginamarge */
+  }
+
+  @media (max-width: 920px) {
+    .grid.kpi { grid-template-columns: repeat(2,1fr); }
+    .grid.two { grid-template-columns: 1fr; }
+    .sidebar { width: 64px; padding: 20px 8px; }
+    .brand span, .brand small, .nav button span, .sidebar-foot .btn span { display: none; }
+    .main { padding: 24px 18px 50px; }
+    .card { overflow-x: auto; }                 /* brede tabellen horizontaal scrollen */
+  }
+
+  /* Telefoon-formaat */
+  @media (max-width: 560px) {
+    .grid.kpi { grid-template-columns: 1fr; }
+    input, select, textarea { font-size: 16px; }   /* voorkomt automatisch inzoomen op iOS */
+    .main { padding: 16px 12px calc(40px + env(safe-area-inset-bottom)); }
+    .page-head h1 { font-size: 24px; }
+    .modal { padding: 20px 16px; }
+    .sidebar { padding-top: calc(20px + env(safe-area-inset-top)); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div><span>Booth</span><small>DJ Boekhouding</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button data-view="dashboard" class="active"><span class="ic">📊</span><span>Dashboard</span></button>
+      <button data-view="gigs"><span class="ic">🎧</span><span>Gigs &amp; Inkomsten</span></button>
+      <button data-view="kosten"><span class="ic">🧾</span><span>Uitgaven</span></button>
+      <button data-view="facturen"><span class="ic">📄</span><span>Facturen</span></button>
+      <button data-view="klanten"><span class="ic">👥</span><span>Klanten</span></button>
+      <button data-view="km"><span class="ic">🚗</span><span>Kilometers</span></button>
+      <button data-view="btw"><span class="ic">%</span><span>Btw-overzicht</span></button>
+      <button data-view="jaar"><span class="ic">📅</span><span>Jaaroverzicht</span></button>
+      <button data-view="instellingen"><span class="ic">⚙️</span><span>Instellingen</span></button>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="btn sm" onclick="exportData()"><span>⬇ Back-up exporteren</span></button>
+      <button class="btn sm" onclick="startImport()"><span>⬆ Back-up importeren</span></button>
+      <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main" id="main"></main>
+</div>
+
+<!-- ============ MODAL ============ -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- print sandbox -->
+<div id="printArea" class="hidden"></div>
+
+<script>
+/* ===================================================================
+   BOOTH — DJ Boekhouding
+   Eén bestand. Geen server. Alle data in localStorage van je browser.
+   =================================================================== */
+
+/* ---------- Data ---------- */
+const STORE_KEY = 'booth_dj_data_v1';
+
+const defaultData = {
+  settings: {
+    artiestennaam: '',
+    eigennaam: '',
+    adres: '',
+    postcode: '',
+    plaats: '',
+    kvk: '',
+    btwid: '',
+    iban: '',
+    email: '',
+    telefoon: '',
+    kmtarief: 0.23,        // € per km (aftrekbaar, controleer actueel tarief)
+    factuurprefix: 'DJ',
+    factuurteller: 1
+  },
+  gigs: [],      // {id, datum, opdrachtgever, locatie, bedrag, btw, betaald}
+  kosten: [],    // {id, datum, omschrijving, categorie, bedrag, btw}
+  facturen: [],  // {id, nummer, datum, opdrachtgever, adres, regels:[{oms,bedrag}], btw, betaald}
+  ritten: [],    // {id, datum, vanNaar, km, doel}
+  klanten: []    // {id, naam, adres, email, telefoon}
+};
+
+// In de Tauri-app schrijven we naar een JSON-bestand op schijf; in een gewone
+// browser valt alles terug op localStorage.
+const runningInTauri = !!window.__TAURI_INTERNALS__;
+const tauriInvoke = runningInTauri ? window.__TAURI_INTERNALS__.invoke : null;
+
+let data = structuredClone(defaultData);
+
+function parseStored(raw) {
+  if (!raw) return structuredClone(defaultData);
+  try {
+    const parsed = JSON.parse(raw);
+    // merge zodat nieuwe velden niet ontbreken
+    return {
+      settings: { ...defaultData.settings, ...(parsed.settings||{}) },
+      gigs: parsed.gigs || [],
+      kosten: parsed.kosten || [],
+      facturen: parsed.facturen || [],
+      ritten: parsed.ritten || [],
+      klanten: parsed.klanten || []
+    };
+  } catch(e) {
+    console.error('Laden mislukt', e);
+    return structuredClone(defaultData);
+  }
+}
+async function loadData() {
+  if (runningInTauri) {
+    try { data = parseStored(await tauriInvoke('load_data')); }
+    catch(e) { console.error('Laden mislukt', e); data = structuredClone(defaultData); }
+  } else {
+    data = parseStored(localStorage.getItem(STORE_KEY));
+  }
+}
+function save() {
+  const raw = JSON.stringify(data);
+  if (runningInTauri) {
+    tauriInvoke('save_data', { contents: raw }).catch(e=>console.error('Opslaan mislukt', e));
+  } else {
+    localStorage.setItem(STORE_KEY, raw);
+  }
+}
+
+/* ---------- Helpers ---------- */
+const uid = () => Math.random().toString(36).slice(2,10);
+const euro = n => '€ ' + (Number(n)||0).toLocaleString('nl-NL',{minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtDate = d => d ? new Date(d).toLocaleDateString('nl-NL',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+const thisYear = () => new Date().getFullYear();
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// btw uit een bruto bedrag halen: bedrag is incl. btw
+function btwBedrag(bruto, tarief){ return (Number(bruto)||0) * tarief/(100+tarief); }
+function netto(bruto, tarief){ return (Number(bruto)||0) - btwBedrag(bruto,tarief); }
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ---------- Berekeningen ---------- */
+function calc(year){
+  const g = data.gigs.filter(x=>new Date(x.datum).getFullYear()===year);
+  const k = data.kosten.filter(x=>new Date(x.datum).getFullYear()===year);
+  const r = data.ritten.filter(x=>new Date(x.datum).getFullYear()===year);
+
+  const omzetBruto = g.reduce((s,x)=>s+(Number(x.bedrag)||0),0);
+  const omzetNetto = g.reduce((s,x)=>s+netto(x.bedrag,x.btw),0);
+  const btwOver    = g.reduce((s,x)=>s+btwBedrag(x.bedrag,x.btw),0);
+
+  const kostenBruto = k.reduce((s,x)=>s+(Number(x.bedrag)||0),0);
+  const kostenNetto = k.reduce((s,x)=>s+netto(x.bedrag,x.btw),0);
+  const btwVoor     = k.reduce((s,x)=>s+btwBedrag(x.bedrag,x.btw),0);
+
+  const kmTotaal = r.reduce((s,x)=>s+(Number(x.km)||0),0);
+  const kmAftrek = kmTotaal * (Number(data.settings.kmtarief)||0);
+
+  const openstaand = g.filter(x=>!x.betaald).reduce((s,x)=>s+(Number(x.bedrag)||0),0)
+    + data.facturen.filter(f=>!f.betaald).reduce((s,f)=>s+factuurTotaal(f),0);
+
+  const winst = omzetNetto - kostenNetto - kmAftrek;
+
+  return { g,k,r, omzetBruto, omzetNetto, btwOver, kostenBruto, kostenNetto,
+           btwVoor, kmTotaal, kmAftrek, openstaand, winst,
+           btwAfdracht: btwOver - btwVoor };
+}
+
+function factuurTotaal(f){
+  const sub = (f.regels||[]).reduce((s,r)=>s+(Number(r.bedrag)||0),0);
+  return sub * (1 + (Number(f.btw)||0)/100);
+}
+
+/* ===================================================================
+   VIEWS
+   =================================================================== */
+let currentView = 'dashboard';
+
+function render(){
+  const pa = document.getElementById('printArea');   // eventueel printrestant opruimen
+  if(pa) pa.classList.add('hidden');
+  document.querySelectorAll('#nav button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===currentView);
+  });
+  const m = document.getElementById('main');
+  m.innerHTML = views[currentView] ? views[currentView]() : '<p>Onbekend</p>';
+}
+
+/* ---------- Sorteren (klikbare kolomkoppen) ---------- */
+let sortState = {
+  gigs:     { key:'datum', dir:-1 },
+  kosten:   { key:'datum', dir:-1 },
+  facturen: { key:'datum', dir:-1 },
+  km:       { key:'datum', dir:-1 },
+  klanten:  { key:'naam',  dir:1 }
+};
+function setSort(view, key){
+  const s = sortState[view];
+  if(s.key===key){ s.dir = -s.dir; }
+  else { s.key = key; s.dir = ['datum','nummer','bedrag','totaal','btw','km'].includes(key) ? -1 : 1; }
+  render();
+}
+function sortVal(x, key){
+  switch(key){
+    case 'datum':   return new Date(x.datum||0).getTime();
+    case 'bedrag':  return Number(x.bedrag)||0;
+    case 'km':      return Number(x.km)||0;
+    case 'totaal':  return factuurTotaal(x);
+    case 'betaald': return x.betaald ? 1 : 0;
+    case 'btw':     return Number(x.btw)||0;
+    case 'nummer':  return String(x.nummer||'');
+    default:        return String(x[key]??'').toLowerCase();
+  }
+}
+function sortLijst(view, arr){
+  const { key, dir } = sortState[view];
+  return [...arr].sort((a,b)=>{ const va=sortVal(a,key), vb=sortVal(b,key); return (va<vb?-1:va>vb?1:0)*dir; });
+}
+function colHead(view, key, label, cls){
+  const s = sortState[view];
+  const pijl = s.key===key ? (s.dir>0?' ▲':' ▼') : '';
+  return `<th class="${cls||''}" style="cursor:pointer;user-select:none" onclick="setSort('${view}','${key}')">${label}${pijl}</th>`;
+}
+
+const views = {
+
+  /* ---------- DASHBOARD ---------- */
+  dashboard(){
+    const c = calc(thisYear());
+    const recente = [...data.gigs].sort((a,b)=>new Date(b.datum)-new Date(a.datum)).slice(0,6);
+    return `
+      <div class="page-head">
+        <div><h1>Dashboard</h1><div class="sub">Overzicht ${thisYear()}</div></div>
+        <button class="btn primary" onclick="openGig()">+ Nieuwe gig</button>
+      </div>
+
+      <div class="grid kpi">
+        <div class="card kpi-card">
+          <div class="label">Omzet (excl. btw)</div>
+          <div class="value accent">${euro(c.omzetNetto)}</div>
+          <div class="meta">${c.g.length} gigs dit jaar</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="label">Kosten (excl. btw)</div>
+          <div class="value pink">${euro(c.kostenNetto)}</div>
+          <div class="meta">${c.k.length} uitgaven</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="label">Winst (indicatie)</div>
+          <div class="value">${euro(c.winst)}</div>
+          <div class="meta">incl. ${euro(c.kmAftrek)} km-aftrek</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="label">Nog te ontvangen</div>
+          <div class="value blue">${euro(c.openstaand)}</div>
+          <div class="meta">openstaande gigs + facturen</div>
+        </div>
+      </div>
+
+      <div class="grid two" style="margin-top:16px;">
+        <div class="card">
+          <h3>Btw-stand ${thisYear()}</h3>
+          <table>
+            <tr><td>Btw ontvangen (op omzet)</td><td class="num">${euro(c.btwOver)}</td></tr>
+            <tr><td>Btw betaald (op kosten)</td><td class="num">${euro(c.btwVoor)}</td></tr>
+            <tr><td style="font-weight:700;">Saldo af te dragen</td>
+                <td class="num" style="font-weight:700;color:${c.btwAfdracht>=0?'var(--warn)':'var(--ok)'}">${euro(c.btwAfdracht)}</td></tr>
+          </table>
+          <p style="font-size:11.5px;color:var(--ink-faint);margin-top:12px;">
+            Een positief saldo betekent dat je dit bedrag aan de Belastingdienst betaalt.</p>
+        </div>
+        <div class="card">
+          <h3>Snelle acties</h3>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <button class="btn" onclick="openGig()">🎧 Gig toevoegen</button>
+            <button class="btn" onclick="openKost()">🧾 Uitgave toevoegen</button>
+            <button class="btn" onclick="openFactuur()">📄 Factuur opstellen</button>
+            <button class="btn" onclick="openRit()">🚗 Rit registreren</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h3>Recente gigs</h3>
+        ${recente.length ? `
+        <table>
+          <thead><tr><th>Datum</th><th>Opdrachtgever</th><th>Locatie</th>
+            <th class="num">Bedrag</th><th>Status</th></tr></thead>
+          <tbody>${recente.map(g=>`
+            <tr>
+              <td class="mono">${fmtDate(g.datum)}</td>
+              <td>${esc(g.opdrachtgever)}</td>
+              <td style="color:var(--ink-dim)">${esc(g.locatie)||'—'}</td>
+              <td class="num">${euro(g.bedrag)}</td>
+              <td><span class="tag ${g.betaald?'paid':'unpaid'}">${g.betaald?'Betaald':'Open'}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>` : `<div class="empty"><div class="big">🎧</div>Nog geen gigs ingevoerd.</div>`}
+      </div>
+    `;
+  },
+
+  /* ---------- GIGS ---------- */
+  gigs(){
+    const list = sortLijst('gigs', data.gigs);
+    const tot = list.reduce((s,x)=>s+(Number(x.bedrag)||0),0);
+    return `
+      <div class="page-head">
+        <div><h1>Gigs &amp; Inkomsten</h1>
+          <div class="sub">${list.length} optredens · ${euro(tot)} totaal (incl. btw)</div></div>
+        <button class="btn primary" onclick="openGig()">+ Nieuwe gig</button>
+      </div>
+      <div class="card">
+        ${list.length ? `
+        <table>
+          <thead><tr>${colHead('gigs','datum','Datum')}${colHead('gigs','opdrachtgever','Opdrachtgever')}${colHead('gigs','locatie','Locatie')}
+            ${colHead('gigs','btw','Btw')}${colHead('gigs','bedrag','Bedrag incl.','num')}<th class="num">Excl. btw</th>
+            ${colHead('gigs','betaald','Status')}<th></th></tr></thead>
+          <tbody>${list.map(g=>`
+            <tr>
+              <td class="mono">${fmtDate(g.datum)}</td>
+              <td>${esc(g.opdrachtgever)}</td>
+              <td style="color:var(--ink-dim)">${esc(g.locatie)||'—'}</td>
+              <td><span class="tag v${g.btw}">${g.btw}%</span></td>
+              <td class="num">${euro(g.bedrag)}</td>
+              <td class="num" style="color:var(--ink-dim)">${euro(netto(g.bedrag,g.btw))}</td>
+              <td><span class="tag ${g.betaald?'paid':'unpaid'}"
+                   style="cursor:pointer" onclick="toggleGig('${g.id}')">${g.betaald?'Betaald':'Open'}</span></td>
+              <td class="row-actions">
+                <button class="icon-btn" onclick="openGig('${g.id}')">✏️</button>
+                <button class="icon-btn" onclick="delGig('${g.id}')">🗑️</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>` : `<div class="empty"><div class="big">🎧</div>
+          Nog geen gigs. Klik op <strong>+ Nieuwe gig</strong> om te beginnen.</div>`}
+      </div>
+    `;
+  },
+
+  /* ---------- KOSTEN ---------- */
+  kosten(){
+    const list = sortLijst('kosten', data.kosten);
+    const tot = list.reduce((s,x)=>s+(Number(x.bedrag)||0),0);
+    return `
+      <div class="page-head">
+        <div><h1>Uitgaven</h1>
+          <div class="sub">${list.length} posten · ${euro(tot)} totaal (incl. btw)</div></div>
+        <button class="btn primary" onclick="openKost()">+ Nieuwe uitgave</button>
+      </div>
+      <div class="card">
+        ${list.length ? `
+        <table>
+          <thead><tr>${colHead('kosten','datum','Datum')}${colHead('kosten','omschrijving','Omschrijving')}${colHead('kosten','categorie','Categorie')}
+            ${colHead('kosten','btw','Btw')}${colHead('kosten','bedrag','Bedrag incl.','num')}<th class="num">Btw terug</th><th></th></tr></thead>
+          <tbody>${list.map(k=>`
+            <tr>
+              <td class="mono">${fmtDate(k.datum)}</td>
+              <td>${esc(k.omschrijving)}</td>
+              <td style="color:var(--ink-dim)">${esc(k.categorie)}</td>
+              <td><span class="tag v${k.btw}">${k.btw}%</span></td>
+              <td class="num">${euro(k.bedrag)}</td>
+              <td class="num" style="color:var(--blue)">${euro(btwBedrag(k.bedrag,k.btw))}</td>
+              <td class="row-actions">
+                <button class="icon-btn" onclick="openKost('${k.id}')">✏️</button>
+                <button class="icon-btn" onclick="delKost('${k.id}')">🗑️</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>` : `<div class="empty"><div class="big">🧾</div>
+          Nog geen uitgaven. Denk aan apparatuur, software, vervoer, promotie.</div>`}
+      </div>
+    `;
+  },
+
+  /* ---------- FACTUREN ---------- */
+  facturen(){
+    const list = sortLijst('facturen', data.facturen);
+    return `
+      <div class="page-head">
+        <div><h1>Facturen</h1><div class="sub">${list.length} facturen opgesteld</div></div>
+        <button class="btn primary" onclick="openFactuur()">+ Nieuwe factuur</button>
+      </div>
+      <div class="card">
+        ${list.length ? `
+        <table>
+          <thead><tr>${colHead('facturen','nummer','Nummer')}${colHead('facturen','datum','Datum')}${colHead('facturen','opdrachtgever','Opdrachtgever')}
+            ${colHead('facturen','totaal','Totaal incl.','num')}${colHead('facturen','betaald','Status')}<th></th></tr></thead>
+          <tbody>${list.map(f=>`
+            <tr>
+              <td class="mono">${esc(f.nummer)}</td>
+              <td class="mono">${fmtDate(f.datum)}</td>
+              <td>${esc(f.opdrachtgever)}</td>
+              <td class="num">${euro(factuurTotaal(f))}</td>
+              <td><span class="tag ${f.betaald?'paid':'unpaid'}"
+                   style="cursor:pointer" onclick="toggleFactuur('${f.id}')">${f.betaald?'Betaald':'Open'}</span></td>
+              <td class="row-actions">
+                <button class="btn sm" title="Versturen per e-mail" onclick="verstuurFactuur('${f.id}')">✉ Mail</button>
+                <button class="btn sm" title="Factuur exporteren als PDF" onclick="exportFactuurPDF('${f.id}')">⬇ PDF</button>
+                <button class="icon-btn" title="Printen" onclick="printFactuur('${f.id}')">🖨️</button>
+                <button class="icon-btn" onclick="openFactuur('${f.id}')">✏️</button>
+                <button class="icon-btn" onclick="delFactuur('${f.id}')">🗑️</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>` : `<div class="empty"><div class="big">📄</div>
+          Nog geen facturen. Vul eerst je gegevens in bij <strong>Instellingen</strong>.</div>`}
+      </div>
+    `;
+  },
+
+  /* ---------- KLANTEN ---------- */
+  klanten(){
+    const list = sortLijst('klanten', data.klanten);
+    return `
+      <div class="page-head">
+        <div><h1>Klanten</h1><div class="sub">${list.length} opgeslagen · te kiezen bij een nieuwe factuur</div></div>
+        <button class="btn primary" onclick="openKlant()">+ Nieuwe klant</button>
+      </div>
+      <div class="card">
+        ${list.length ? `
+        <table>
+          <thead><tr>${colHead('klanten','naam','Naam')}${colHead('klanten','adres','Adres')}${colHead('klanten','email','E-mail')}${colHead('klanten','telefoon','Telefoon')}<th></th></tr></thead>
+          <tbody>${list.map(k=>`
+            <tr>
+              <td>${esc(k.naam)}</td>
+              <td style="color:var(--ink-dim);white-space:pre-line">${esc(k.adres)||'—'}</td>
+              <td style="color:var(--ink-dim)">${esc(k.email)||'—'}</td>
+              <td style="color:var(--ink-dim)">${esc(k.telefoon)||'—'}</td>
+              <td class="row-actions">
+                <button class="icon-btn" onclick="openKlant('${k.id}')">✏️</button>
+                <button class="icon-btn" onclick="delKlant('${k.id}')">🗑️</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>` : `<div class="empty"><div class="big">👥</div>
+          Nog geen klanten. Voeg ze hier toe, of sla ze op tijdens het maken van een factuur.</div>`}
+      </div>
+    `;
+  },
+
+  /* ---------- KILOMETERS ---------- */
+  km(){
+    const list = sortLijst('km', data.ritten);
+    const totKm = list.reduce((s,x)=>s+(Number(x.km)||0),0);
+    const tarief = Number(data.settings.kmtarief)||0;
+    return `
+      <div class="page-head">
+        <div><h1>Kilometerregistratie</h1>
+          <div class="sub">${totKm.toLocaleString('nl-NL')} km · aftrek ${euro(totKm*tarief)} (à ${euro(tarief)}/km)</div></div>
+        <button class="btn primary" onclick="openRit()">+ Rit toevoegen</button>
+      </div>
+      <div class="card">
+        ${list.length ? `
+        <table>
+          <thead><tr>${colHead('km','datum','Datum')}${colHead('km','vanNaar','Rit')}${colHead('km','doel','Doel')}
+            ${colHead('km','km','Km','num')}<th class="num">Aftrek</th><th></th></tr></thead>
+          <tbody>${list.map(r=>`
+            <tr>
+              <td class="mono">${fmtDate(r.datum)}</td>
+              <td>${esc(r.vanNaar)}</td>
+              <td style="color:var(--ink-dim)">${esc(r.doel)||'—'}</td>
+              <td class="num">${(Number(r.km)||0).toLocaleString('nl-NL')}</td>
+              <td class="num" style="color:var(--accent)">${euro((Number(r.km)||0)*tarief)}</td>
+              <td class="row-actions">
+                <button class="icon-btn" onclick="openRit('${r.id}')">✏️</button>
+                <button class="icon-btn" onclick="delRit('${r.id}')">🗑️</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>` : `<div class="empty"><div class="big">🚗</div>
+          Nog geen ritten. Registreer je reizen naar gigs voor de kilometeraftrek.</div>`}
+      </div>
+    `;
+  },
+
+  /* ---------- BTW ---------- */
+  btw(){
+    const y = thisYear();
+    const kw = [1,2,3,4].map(q=>{
+      const inQ = d => { const m=new Date(d).getMonth(); return Math.floor(m/3)+1===q && new Date(d).getFullYear()===y; };
+      const g = data.gigs.filter(x=>inQ(x.datum));
+      const k = data.kosten.filter(x=>inQ(x.datum));
+      const f = data.facturen.filter(x=>inQ(x.datum));
+      const btwOmzet = g.reduce((s,x)=>s+btwBedrag(x.bedrag,x.btw),0)
+        + f.reduce((s,x)=>s+(factuurTotaal(x)-(x.regels||[]).reduce((a,r)=>a+(Number(r.bedrag)||0),0)),0);
+      const btwKosten = k.reduce((s,x)=>s+btwBedrag(x.bedrag,x.btw),0);
+      return { q, btwOmzet, btwKosten, saldo: btwOmzet-btwKosten };
+    });
+    return `
+      <div class="page-head">
+        <div><h1>Btw-overzicht ${y}</h1>
+          <div class="sub">Per kwartaal — gebruik dit voor je aangifte omzetbelasting</div></div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Kwartaal</th><th class="num">Btw op omzet</th>
+            <th class="num">Btw op kosten</th><th class="num">Af te dragen</th></tr></thead>
+          <tbody>${kw.map(x=>`
+            <tr>
+              <td><strong>Q${x.q}</strong> <span style="color:var(--ink-faint)">${y}</span></td>
+              <td class="num">${euro(x.btwOmzet)}</td>
+              <td class="num" style="color:var(--blue)">${euro(x.btwKosten)}</td>
+              <td class="num" style="font-weight:700;color:${x.saldo>=0?'var(--warn)':'var(--ok)'}">${euro(x.saldo)}</td>
+            </tr>`).join('')}
+            <tr style="border-top:2px solid var(--line)">
+              <td><strong>Heel ${y}</strong></td>
+              <td class="num"><strong>${euro(kw.reduce((s,x)=>s+x.btwOmzet,0))}</strong></td>
+              <td class="num"><strong>${euro(kw.reduce((s,x)=>s+x.btwKosten,0))}</strong></td>
+              <td class="num"><strong>${euro(kw.reduce((s,x)=>s+x.saldo,0))}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:14px;">
+          Dit overzicht is een hulpmiddel, geen vervanging voor je officiële aangifte.
+          Controleer altijd of facturen met 9% (artistieke prestatie) of 21% kloppen voor jouw situatie.</p>
+      </div>
+    `;
+  },
+
+  /* ---------- JAAR ---------- */
+  jaar(){
+    const years = [...new Set([
+      ...data.gigs.map(x=>new Date(x.datum).getFullYear()),
+      ...data.kosten.map(x=>new Date(x.datum).getFullYear()),
+      thisYear()
+    ])].sort((a,b)=>b-a);
+    const y = window._jaarSel || thisYear();
+    const c = calc(y);
+    return `
+      <div class="page-head">
+        <div><h1>Jaaroverzicht</h1>
+          <div class="sub">Samenvatting voor je inkomstenbelasting</div></div>
+        <div class="pill-group">
+          ${years.map(yr=>`<span class="pill ${yr===y?'active':''}"
+            onclick="window._jaarSel=${yr};render()">${yr}</span>`).join('')}
+        </div>
+      </div>
+      <div class="grid two">
+        <div class="card">
+          <h3>Resultaat ${y}</h3>
+          <table>
+            <tr><td>Omzet excl. btw</td><td class="num">${euro(c.omzetNetto)}</td></tr>
+            <tr><td>Zakelijke kosten excl. btw</td><td class="num">−${euro(c.kostenNetto).slice(2)}</td></tr>
+            <tr><td>Kilometeraftrek (${c.kmTotaal.toLocaleString('nl-NL')} km)</td>
+                <td class="num">−${euro(c.kmAftrek).slice(2)}</td></tr>
+            <tr style="border-top:2px solid var(--line)">
+              <td style="font-weight:800;">Winst uit onderneming</td>
+              <td class="num" style="font-weight:800;color:var(--accent)">${euro(c.winst)}</td></tr>
+          </table>
+          <p style="font-size:11.5px;color:var(--ink-faint);margin-top:12px;">
+            Dit is je winst vóór ondernemersaftrek (zelfstandigenaftrek, startersaftrek,
+            MKB-winstvrijstelling). Die pas je toe in je aangifte.</p>
+        </div>
+        <div class="card">
+          <h3>Btw ${y}</h3>
+          <table>
+            <tr><td>Btw ontvangen op omzet</td><td class="num">${euro(c.btwOver)}</td></tr>
+            <tr><td>Btw betaald op kosten</td><td class="num">${euro(c.btwVoor)}</td></tr>
+            <tr style="border-top:2px solid var(--line)">
+              <td style="font-weight:700;">Totaal afgedragen / te betalen</td>
+              <td class="num" style="font-weight:700;">${euro(c.btwAfdracht)}</td></tr>
+          </table>
+          <h3 style="margin-top:20px;">Activiteit</h3>
+          <table>
+            <tr><td>Aantal gigs</td><td class="num">${c.g.length}</td></tr>
+            <tr><td>Aantal uitgaven</td><td class="num">${c.k.length}</td></tr>
+            <tr><td>Gereden kilometers</td><td class="num">${c.kmTotaal.toLocaleString('nl-NL')}</td></tr>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  /* ---------- INSTELLINGEN ---------- */
+  instellingen(){
+    const s = data.settings;
+    const f = (k,label,ph='',type='text') =>
+      `<div class="field"><label>${label}</label>
+        <input type="${type}" id="set_${k}" value="${esc(s[k]??'')}" placeholder="${ph}"></div>`;
+    return `
+      <div class="page-head">
+        <div><h1>Instellingen</h1>
+          <div class="sub">Jouw gegevens — gebruikt op facturen en in berekeningen</div></div>
+        <button class="btn primary" onclick="saveSettings()">Opslaan</button>
+      </div>
+      <div class="card">
+        <div class="section-title">Bedrijfsgegevens</div>
+        <div class="form-row">${f('artiestennaam','Artiestennaam','DJ ...')}${f('eigennaam','Eigen naam','Voor- en achternaam')}</div>
+        <div class="form-row">${f('adres','Adres','Straat en huisnummer')}${f('postcode','Postcode')}${f('plaats','Plaats')}</div>
+        <div class="form-row">${f('email','E-mail','','email')}${f('telefoon','Telefoon')}</div>
+
+        <div class="section-title">Fiscaal &amp; betaling</div>
+        <div class="form-row">${f('kvk','KvK-nummer')}${f('btwid','Btw-identificatienummer','NL...B..')}</div>
+        <div class="form-row">${f('iban','IBAN','NL.. ....')}</div>
+
+        <div class="section-title">Voorkeuren</div>
+        <div class="form-row">
+          ${f('kmtarief','Kilometertarief (€/km)','0.23','number')}
+          ${f('factuurprefix','Factuur-voorvoegsel','DJ')}
+          <div class="field"><label>Volgend factuurnummer</label>
+            <input type="number" id="set_factuurteller" value="${esc(s.factuurteller)}"></div>
+        </div>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">
+          Het kilometertarief verandert soms per jaar — controleer het actuele bedrag bij de Belastingdienst.</p>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="section-title">Gegevensbeheer</div>
+        <p style="font-size:13px;color:var(--ink-dim);margin-bottom:14px;">
+          Je data staat in deze browser. Maak regelmatig een back-up naar bestand —
+          dat bestand is je échte veiligheidskopie.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn" onclick="exportData()">⬇ Back-up exporteren</button>
+          <button class="btn" onclick="startImport()">⬆ Back-up importeren</button>
+          <button class="btn danger" onclick="wipeAll()">Alle data wissen</button>
+        </div>
+      </div>
+    `;
+  }
+};
+
+/* ===================================================================
+   MODALS — toevoegen / bewerken
+   =================================================================== */
+function openModal(html){
+  document.getElementById('modal').innerHTML = html;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+
+document.getElementById('overlay').addEventListener('click', e=>{
+  if(e.target.id==='overlay') closeModal();
+});
+
+/* ---- Bedrag incl./excl. btw ---- */
+let bedragMode = { g:'incl', k:'incl' };   // keuze blijft binnen de sessie bewaard
+function setBedragMode(prefix, mode){
+  if(bedragMode[prefix]===mode) return;
+  const inp = document.getElementById(prefix+'_bedrag');
+  const t = parseInt(document.getElementById(prefix+'_btw').value)||0;
+  const v = parseFloat(inp.value);
+  if(!isNaN(v)){
+    // het werkelijke bedrag gelijk houden, alleen de weergave omrekenen
+    inp.value = (mode==='excl' ? v/(1+t/100) : v*(1+t/100)).toFixed(2);
+  }
+  bedragMode[prefix] = mode;
+  document.querySelectorAll('#'+prefix+'_modepills .pill').forEach(p=>{
+    p.classList.toggle('active', p.dataset.mode===mode);
+  });
+  bedragPreview(prefix);
+}
+function bedragPreview(prefix){
+  const box = document.getElementById(prefix+'_preview');
+  if(!box) return;
+  const t = parseInt(document.getElementById(prefix+'_btw').value)||0;
+  const v = parseFloat(document.getElementById(prefix+'_bedrag').value)||0;
+  const incl = bedragMode[prefix]==='excl' ? v*(1+t/100) : v;
+  const excl = bedragMode[prefix]==='excl' ? v : v/(1+t/100);
+  box.innerHTML = `Excl. btw <strong>${euro(excl)}</strong> · `
+    + `Btw ${t}% <strong>${euro(incl-excl)}</strong> · `
+    + `Incl. btw <strong>${euro(incl)}</strong>`;
+}
+
+/* ---- GIG ---- */
+function openGig(id){
+  const g = id ? data.gigs.find(x=>x.id===id) : {};
+  const gBedragInit = g.bedrag==null ? ''
+    : (bedragMode.g==='excl' ? netto(g.bedrag, g.btw).toFixed(2) : g.bedrag);
+  openModal(`
+    <h2>${id?'Gig bewerken':'Nieuwe gig'}</h2>
+    <div class="form-row">
+      <div class="field"><label>Datum</label>
+        <input type="date" id="g_datum" value="${g.datum||new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Bedrag (€)</label>
+        <input type="number" step="0.01" id="g_bedrag" value="${gBedragInit}" placeholder="0.00" oninput="bedragPreview('g')"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Bedrag is</label>
+        <div class="pill-group" id="g_modepills">
+          <span class="pill ${bedragMode.g==='incl'?'active':''}" data-mode="incl" onclick="setBedragMode('g','incl')">incl. btw</span>
+          <span class="pill ${bedragMode.g==='excl'?'active':''}" data-mode="excl" onclick="setBedragMode('g','excl')">excl. btw</span>
+        </div></div>
+      <div class="field"><label>Btw-tarief</label>
+        <select id="g_btw" onchange="bedragPreview('g')">
+          <option value="9" ${g.btw!=0?'selected':''}>9% — artistieke prestatie</option>
+          <option value="0" ${g.btw==0?'selected':''}>0% — geen btw</option>
+        </select></div>
+    </div>
+    <div id="g_preview" class="bedrag-preview"></div>
+    <div class="form-row">
+      <div class="field"><label>Opdrachtgever</label>
+        <input id="g_opdr" value="${esc(g.opdrachtgever||'')}" placeholder="Club / boeker / particulier"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Locatie</label>
+        <input id="g_loc" value="${esc(g.locatie||'')}" placeholder="Naam venue / stad"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Betaald?</label>
+        <select id="g_betaald">
+          <option value="false" ${!g.betaald?'selected':''}>Nog open</option>
+          <option value="true"  ${g.betaald?'selected':''}>Betaald</option>
+        </select></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeModal()">Annuleren</button>
+      <button class="btn primary" onclick="saveGig('${id||''}')">Opslaan</button>
+    </div>
+  `);
+  bedragPreview('g');
+}
+function saveGig(id){
+  const tarief = parseInt(document.getElementById('g_btw').value);
+  const ingevoerd = parseFloat(document.getElementById('g_bedrag').value)||0;
+  const bedrag = bedragMode.g==='excl'
+    ? Math.round(ingevoerd*(1+tarief/100)*100)/100   // ex-btw → incl. btw (opslag is altijd incl.)
+    : ingevoerd;
+  const obj = {
+    id: id || uid(),
+    datum: document.getElementById('g_datum').value,
+    bedrag,
+    opdrachtgever: document.getElementById('g_opdr').value.trim(),
+    locatie: document.getElementById('g_loc').value.trim(),
+    btw: tarief,
+    betaald: document.getElementById('g_betaald').value==='true'
+  };
+  if(!obj.opdrachtgever){ toast('Vul een opdrachtgever in'); return; }
+  if(id){ const i=data.gigs.findIndex(x=>x.id===id); data.gigs[i]=obj; }
+  else data.gigs.push(obj);
+  save(); closeModal(); render(); toast('Gig opgeslagen');
+}
+function delGig(id){
+  if(!confirm('Deze gig verwijderen?')) return;
+  data.gigs = data.gigs.filter(x=>x.id!==id); save(); render(); toast('Gig verwijderd');
+}
+function toggleGig(id){
+  const g = data.gigs.find(x=>x.id===id); g.betaald=!g.betaald; save(); render();
+}
+
+/* ---- KOSTEN ---- */
+function openKost(id){
+  const k = id ? data.kosten.find(x=>x.id===id) : {};
+  const cats = ['Apparatuur','Software & abonnementen','Vervoer','Promotie & marketing',
+    'Muziek & samples','Kleding','Verzekeringen','Opleiding','Overig'];
+  const kBedragInit = k.bedrag==null ? ''
+    : (bedragMode.k==='excl' ? netto(k.bedrag, k.btw).toFixed(2) : k.bedrag);
+  openModal(`
+    <h2>${id?'Uitgave bewerken':'Nieuwe uitgave'}</h2>
+    <div class="form-row">
+      <div class="field"><label>Datum</label>
+        <input type="date" id="k_datum" value="${k.datum||new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Bedrag (€)</label>
+        <input type="number" step="0.01" id="k_bedrag" value="${kBedragInit}" placeholder="0.00" oninput="bedragPreview('k')"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Bedrag is</label>
+        <div class="pill-group" id="k_modepills">
+          <span class="pill ${bedragMode.k==='incl'?'active':''}" data-mode="incl" onclick="setBedragMode('k','incl')">incl. btw</span>
+          <span class="pill ${bedragMode.k==='excl'?'active':''}" data-mode="excl" onclick="setBedragMode('k','excl')">excl. btw</span>
+        </div></div>
+      <div class="field"><label>Btw-tarief</label>
+        <select id="k_btw" onchange="bedragPreview('k')">
+          <option value="21" ${k.btw==21?'selected':''}>21%</option>
+          <option value="9"  ${k.btw==9?'selected':''}>9%</option>
+          <option value="0"  ${k.btw==0?'selected':''}>0% / geen btw</option>
+        </select></div>
+    </div>
+    <div id="k_preview" class="bedrag-preview"></div>
+    <div class="form-row">
+      <div class="field"><label>Omschrijving</label>
+        <input id="k_oms" value="${esc(k.omschrijving||'')}" placeholder="Bijv. nieuwe koptelefoon"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Categorie</label>
+        <select id="k_cat">${cats.map(c=>`<option ${k.categorie===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeModal()">Annuleren</button>
+      <button class="btn primary" onclick="saveKost('${id||''}')">Opslaan</button>
+    </div>
+  `);
+  bedragPreview('k');
+}
+function saveKost(id){
+  const tarief = parseInt(document.getElementById('k_btw').value);
+  const ingevoerd = parseFloat(document.getElementById('k_bedrag').value)||0;
+  const bedrag = bedragMode.k==='excl'
+    ? Math.round(ingevoerd*(1+tarief/100)*100)/100   // ex-btw → incl. btw (opslag is altijd incl.)
+    : ingevoerd;
+  const obj = {
+    id: id || uid(),
+    datum: document.getElementById('k_datum').value,
+    bedrag,
+    omschrijving: document.getElementById('k_oms').value.trim(),
+    categorie: document.getElementById('k_cat').value,
+    btw: tarief
+  };
+  if(!obj.omschrijving){ toast('Vul een omschrijving in'); return; }
+  if(id){ const i=data.kosten.findIndex(x=>x.id===id); data.kosten[i]=obj; }
+  else data.kosten.push(obj);
+  save(); closeModal(); render(); toast('Uitgave opgeslagen');
+}
+function delKost(id){
+  if(!confirm('Deze uitgave verwijderen?')) return;
+  data.kosten = data.kosten.filter(x=>x.id!==id); save(); render(); toast('Uitgave verwijderd');
+}
+
+/* ---- RIT ---- */
+function openRit(id){
+  const r = id ? data.ritten.find(x=>x.id===id) : {};
+  openModal(`
+    <h2>${id?'Rit bewerken':'Rit registreren'}</h2>
+    <div class="form-row">
+      <div class="field"><label>Datum</label>
+        <input type="date" id="r_datum" value="${r.datum||new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Kilometers</label>
+        <input type="number" id="r_km" value="${r.km??''}" placeholder="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Rit (van → naar)</label>
+        <input id="r_vn" value="${esc(r.vanNaar||'')}" placeholder="Amsterdam → Rotterdam"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Doel</label>
+        <input id="r_doel" value="${esc(r.doel||'')}" placeholder="Gig, aankoop, overleg..."></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeModal()">Annuleren</button>
+      <button class="btn primary" onclick="saveRit('${id||''}')">Opslaan</button>
+    </div>
+  `);
+}
+function saveRit(id){
+  const obj = {
+    id: id || uid(),
+    datum: document.getElementById('r_datum').value,
+    km: parseFloat(document.getElementById('r_km').value)||0,
+    vanNaar: document.getElementById('r_vn').value.trim(),
+    doel: document.getElementById('r_doel').value.trim()
+  };
+  if(!obj.vanNaar){ toast('Vul de rit in'); return; }
+  if(id){ const i=data.ritten.findIndex(x=>x.id===id); data.ritten[i]=obj; }
+  else data.ritten.push(obj);
+  save(); closeModal(); render(); toast('Rit opgeslagen');
+}
+function delRit(id){
+  if(!confirm('Deze rit verwijderen?')) return;
+  data.ritten = data.ritten.filter(x=>x.id!==id); save(); render(); toast('Rit verwijderd');
+}
+
+/* ---- KLANT ---- */
+function openKlant(id){
+  const k = id ? data.klanten.find(x=>x.id===id) : {};
+  openModal(`
+    <h2>${id?'Klant bewerken':'Nieuwe klant'}</h2>
+    <div class="form-row">
+      <div class="field"><label>Naam</label>
+        <input id="kl_naam" value="${esc(k.naam||'')}" placeholder="Bedrijfsnaam of particulier"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Adres</label>
+        <textarea id="kl_adres" rows="2" placeholder="Straat, postcode, plaats">${esc(k.adres||'')}</textarea></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>E-mail (factuur wordt hierheen gemaild)</label>
+        <input type="email" id="kl_email" value="${esc(k.email||'')}" placeholder="naam@voorbeeld.nl"></div>
+      <div class="field"><label>Telefoon</label>
+        <input id="kl_tel" value="${esc(k.telefoon||'')}" placeholder=""></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeModal()">Annuleren</button>
+      <button class="btn primary" onclick="saveKlant('${id||''}')">Opslaan</button>
+    </div>
+  `);
+}
+function saveKlant(id){
+  const obj = {
+    id: id || uid(),
+    naam: document.getElementById('kl_naam').value.trim(),
+    adres: document.getElementById('kl_adres').value.trim(),
+    email: document.getElementById('kl_email').value.trim(),
+    telefoon: document.getElementById('kl_tel').value.trim()
+  };
+  if(!obj.naam){ toast('Vul een naam in'); return; }
+  if(id){ const i=data.klanten.findIndex(x=>x.id===id); data.klanten[i]=obj; }
+  else data.klanten.push(obj);
+  save(); closeModal(); render(); toast('Klant opgeslagen');
+}
+function delKlant(id){
+  if(!confirm('Deze klant verwijderen?')) return;
+  data.klanten = data.klanten.filter(x=>x.id!==id); save(); render(); toast('Klant verwijderd');
+}
+
+/* ---- FACTUUR ---- */
+function nextFactuurNummer(){
+  const prefix = data.settings.factuurprefix || 'DJ';
+  const jaar = thisYear();
+  let volgend = data.settings.factuurteller || 1;        // 'Volgend factuurnummer' uit Instellingen
+  data.facturen.forEach(f=>{                              // nooit lager dan een bestaand nummer van dit jaar
+    if((f.nummer||'').includes('-'+jaar+'-')){
+      const m = f.nummer.match(/(\d+)\s*$/);
+      if(m) volgend = Math.max(volgend, parseInt(m[1]) + 1);
+    }
+  });
+  return `${prefix}-${jaar}-${String(volgend).padStart(3,'0')}`;
+}
+function openFactuur(id){
+  const f = id ? data.facturen.find(x=>x.id===id) : null;
+  const nummer = f ? f.nummer : nextFactuurNummer();
+  const regels = f ? f.regels : [{oms:'',bedrag:''}];
+  window._factRegels = JSON.parse(JSON.stringify(regels));
+  openModal(`
+    <h2>${id?'Factuur bewerken':'Nieuwe factuur'}</h2>
+    <div class="form-row">
+      <div class="field"><label>Factuurnummer</label>
+        <input id="f_nummer" value="${esc(nummer)}" readonly title="Wordt automatisch opgehoogd" style="opacity:.65;cursor:not-allowed"></div>
+      <div class="field"><label>Factuurdatum</label>
+        <input type="date" id="f_datum" value="${f?f.datum:new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <button class="btn sm" type="button" style="margin:-4px 0 4px" onclick="ontgrendelNummer()">Oude factuur? Nummer aanpassen</button>
+    <div class="form-row">
+      <div class="field"><label>Btw-tarief</label>
+        <select id="f_btw">
+          <option value="9" ${!f||f.btw!=0?'selected':''}>9% — artistieke prestatie</option>
+          <option value="0" ${f&&f.btw==0?'selected':''}>0% — geen btw</option>
+        </select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Opgeslagen klant</label>
+        <select id="f_klant" onchange="vulKlantIn()">
+          <option value="">— Kies een klant of vul hieronder in —</option>
+          ${data.klanten.map(k=>`<option value="${k.id}">${esc(k.naam)}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Opdrachtgever</label>
+        <input id="f_opdr" value="${esc(f?f.opdrachtgever:'')}" placeholder="Bedrijfsnaam"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Adres opdrachtgever</label>
+        <textarea id="f_adres" rows="2" placeholder="Straat, postcode, plaats">${esc(f?f.adres:'')}</textarea></div>
+    </div>
+    <button class="btn sm" type="button" style="margin-bottom:4px" onclick="klantUitFactuur()">💾 Opslaan als klant</button>
+    <div class="section-title">Factuurregels</div>
+    <div id="f_regels"></div>
+    <button class="btn sm" style="margin-top:8px" onclick="addRegel()">+ Regel</button>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeModal()">Annuleren</button>
+      <button class="btn primary" onclick="saveFactuur('${id||''}')">Opslaan</button>
+    </div>
+  `);
+  renderRegels();
+}
+function renderRegels(){
+  const box = document.getElementById('f_regels');
+  box.innerHTML = window._factRegels.map((r,i)=>`
+    <div class="form-row" style="margin-bottom:8px">
+      <div class="field" style="flex:3"><input placeholder="Omschrijving" value="${esc(r.oms)}"
+        oninput="window._factRegels[${i}].oms=this.value"></div>
+      <div class="field" style="flex:1"><input type="number" step="0.01" placeholder="Bedrag"
+        value="${r.bedrag}" oninput="window._factRegels[${i}].bedrag=this.value"></div>
+      <button class="icon-btn" onclick="window._factRegels.splice(${i},1);renderRegels()">🗑️</button>
+    </div>`).join('');
+}
+function addRegel(){ window._factRegels.push({oms:'',bedrag:''}); renderRegels(); }
+function vulKlantIn(){
+  const id = document.getElementById('f_klant').value;
+  if(!id) return;
+  const k = data.klanten.find(x=>x.id===id);
+  if(!k) return;
+  document.getElementById('f_opdr').value = k.naam || '';
+  document.getElementById('f_adres').value = k.adres || '';
+}
+function klantUitFactuur(){
+  const naam = document.getElementById('f_opdr').value.trim();
+  const adres = document.getElementById('f_adres').value.trim();
+  if(!naam){ toast('Vul eerst een opdrachtgever in'); return; }
+  const bestaand = data.klanten.find(k=>(k.naam||'').toLowerCase()===naam.toLowerCase());
+  if(bestaand){ bestaand.adres = adres || bestaand.adres; save(); toast('Klant bijgewerkt'); return; }
+  data.klanten.push({ id: uid(), naam, adres, email:'', telefoon:'' });
+  save(); toast('Klant opgeslagen');
+}
+function saveFactuur(id){
+  const regels = window._factRegels
+    .map(r=>({oms:r.oms.trim(), bedrag:parseFloat(r.bedrag)||0}))
+    .filter(r=>r.oms||r.bedrag);
+  if(!regels.length){ toast('Voeg minstens één regel toe'); return; }
+  const obj = {
+    id: id || uid(),
+    nummer: document.getElementById('f_nummer').value.trim(),
+    datum: document.getElementById('f_datum').value,
+    opdrachtgever: document.getElementById('f_opdr').value.trim(),
+    adres: document.getElementById('f_adres').value.trim(),
+    btw: parseInt(document.getElementById('f_btw').value),
+    regels,
+    betaald: id ? data.facturen.find(x=>x.id===id).betaald : false
+  };
+  if(!obj.opdrachtgever){ toast('Vul een opdrachtgever in'); return; }
+  if(id){ const i=data.facturen.findIndex(x=>x.id===id); data.facturen[i]=obj; }
+  else {
+    data.facturen.push(obj);
+    const m = obj.nummer.match(/(\d+)\s*$/);
+    const seq = m ? parseInt(m[1]) : 0;
+    // teller alleen vooruit bewegen (een ingevoerde oude factuur zet 'm niet terug)
+    if(seq >= data.settings.factuurteller) data.settings.factuurteller = seq + 1;
+  }
+  save(); closeModal(); render(); toast('Factuur opgeslagen');
+}
+function ontgrendelNummer(){
+  const n = document.getElementById('f_nummer');
+  n.readOnly = false;
+  n.style.opacity = '1';
+  n.style.cursor = 'text';
+  n.focus(); n.select();
+}
+function delFactuur(id){
+  if(!confirm('Deze factuur verwijderen?')) return;
+  data.facturen = data.facturen.filter(x=>x.id!==id); save(); render(); toast('Factuur verwijderd');
+}
+function toggleFactuur(id){
+  const f = data.facturen.find(x=>x.id===id); f.betaald=!f.betaald; save(); render();
+}
+function buildFactuurHTML(f, s){
+  const sub = f.regels.reduce((a,r)=>a+r.bedrag,0);
+  const btw = sub*f.btw/100;
+  const iban = s.iban || '[IBAN — invullen bij Instellingen]';
+  const tnv  = s.eigennaam || s.artiestennaam || '[naam — invullen bij Instellingen]';
+  return `
+    <div class="invoice-doc">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;">
+        <div>
+          <div style="font-size:26px;font-weight:800;">${esc(s.artiestennaam||s.eigennaam||'Jouw naam')}</div>
+          <div style="color:#666;font-size:12px;margin-top:4px;white-space:pre-line;">${esc([s.adres, (s.postcode+' '+s.plaats).trim(), s.email, s.telefoon].filter(Boolean).join('\n'))}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px;font-weight:800;letter-spacing:1px;">FACTUUR</div>
+          <div style="color:#666;font-size:12px;margin-top:4px;">${esc(f.nummer)}</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:28px;font-size:12px;">
+        <div>
+          <div style="color:#888;text-transform:uppercase;font-size:10px;letter-spacing:1px;">Factuur aan</div>
+          <div style="font-weight:700;margin-top:4px;">${esc(f.opdrachtgever)}</div>
+          <div style="color:#666;white-space:pre-line;">${esc(f.adres)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div><span style="color:#888;">Factuurdatum:</span> ${fmtDate(f.datum)}</div>
+          ${s.kvk?`<div><span style="color:#888;">KvK:</span> ${esc(s.kvk)}</div>`:''}
+          ${s.btwid?`<div><span style="color:#888;">Btw-id:</span> ${esc(s.btwid)}</div>`:''}
+        </div>
+      </div>
+      <table style="margin-bottom:20px;">
+        <thead><tr><th>Omschrijving</th><th style="text-align:right;">Bedrag</th></tr></thead>
+        <tbody>${f.regels.map(r=>`<tr><td>${esc(r.oms)}</td>
+          <td style="text-align:right;">${euro(r.bedrag)}</td></tr>`).join('')}</tbody>
+      </table>
+      <div style="margin-left:auto;width:240px;font-size:13px;">
+        <div style="display:flex;justify-content:space-between;padding:5px 0;">
+          <span>Subtotaal</span><span>${euro(sub)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e5e5e5;">
+          <span>Btw ${f.btw}%</span><span>${euro(btw)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;font-weight:800;font-size:15px;">
+          <span>Totaal</span><span>${euro(sub+btw)}</span></div>
+      </div>
+      <div style="margin-top:40px;padding-top:18px;border-top:1px solid #e5e5e5;color:#666;font-size:11px;line-height:1.7;">
+        Graag de betaling binnen 30 dagen te voldoen op het volgende rekeningnummer:
+        <strong>${esc(iban)}</strong> onder vermelding van ${esc(f.nummer)} t.n.v. ${esc(tnv)}.
+      </div>
+    </div>`;
+}
+function openFactuurPrint(id, asPdf){
+  const f = data.facturen.find(x=>x.id===id);
+  const area = document.getElementById('printArea');
+  area.innerHTML = buildFactuurHTML(f, data.settings);
+  area.classList.remove('hidden');
+  const prevTitle = document.title;
+  if(asPdf) document.title = `${data.settings.artiestennaam || 'Factuur'} ${f.nummer}`;   // standaard PDF-bestandsnaam
+  const restore = () => {
+    area.classList.add('hidden');
+    document.title = prevTitle;
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+  if(runningInTauri){
+    // Native printpaneel (window.print() werkt niet in WKWebView). De inhoud blijft
+    // staan tot 'afterprint' of tot de volgende render() 'm opruimt.
+    tauriInvoke('print_page').catch(e=>{ console.error(e); toast('Printen mislukt'); });
+  } else {
+    window.print();
+    setTimeout(restore, 1000);
+  }
+}
+function printFactuur(id){ openFactuurPrint(id, false); }
+async function exportFactuurPDF(id){
+  const f = data.facturen.find(x=>x.id===id);
+  if(!f) return;
+  if(runningInTauri){
+    const ok = await factuurNaarPdfDownloads(f);
+    toast(ok ? 'PDF opgeslagen in Downloads' : 'PDF maken mislukt');
+  } else {
+    openFactuurPrint(id, true);
+    toast("Kies 'Opslaan als PDF' in het printvenster");
+  }
+}
+async function verstuurFactuur(id){
+  const f = data.facturen.find(x=>x.id===id);
+  if(!f) return;
+  const klant = data.klanten.find(k=>(k.naam||'').toLowerCase()===(f.opdrachtgever||'').toLowerCase());
+  const body = [
+    `Beste ${f.opdrachtgever || 'klant'},`,
+    ``,
+    `Bedankt voor de fijne samenwerking`,
+    `In de bijlage vind je de factuur (${f.nummer}).`
+  ].join('\n');
+  const adres = (klant && klant.email) ? klant.email : '';
+  const url = `mailto:${adres}?subject=${encodeURIComponent('Factuur '+f.nummer)}&body=${encodeURIComponent(body)}`;
+  if(runningInTauri){
+    const pdfOk = await factuurNaarPdfDownloads(f);          // 1. PDF naar Downloads
+    tauriInvoke('open_url', { url }).catch(e=>console.error('Mail openen mislukt', e)); // 2. mail openen
+    toast(pdfOk ? 'PDF staat in Downloads — voeg die toe aan de mail'
+                : 'Mail klaargezet (PDF maken mislukt)');
+  } else {
+    location.href = url;
+    toast(adres ? 'E-mail klaargezet — vergeet de PDF-bijlage niet'
+                : 'Geen e-mail bij deze klant — vul zelf het adres in');
+  }
+}
+// Genereert de factuur als vector-PDF in Downloads (alleen Tauri). true = gelukt.
+async function factuurNaarPdfDownloads(f){
+  const area = document.getElementById('printArea');
+  area.innerHTML = buildFactuurHTML(f, data.settings);
+  document.body.classList.add('exporting-pdf');
+  await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));   // layout afdwingen
+  try {
+    await tauriInvoke('save_invoice_pdf', { filename: `${data.settings.artiestennaam || 'Factuur'} ${f.nummer}.pdf` });
+    return true;
+  } catch(e){ console.error('PDF mislukt', e); return false; }
+  finally { document.body.classList.remove('exporting-pdf'); }
+}
+
+/* ---- Instellingen opslaan ---- */
+function saveSettings(){
+  const keys = ['artiestennaam','eigennaam','adres','postcode','plaats','kvk',
+    'btwid','iban','email','telefoon','factuurprefix'];
+  keys.forEach(k=>{ data.settings[k] = document.getElementById('set_'+k).value.trim(); });
+  data.settings.kmtarief = parseFloat(document.getElementById('set_kmtarief').value)||0;
+  data.settings.factuurteller = parseInt(document.getElementById('set_factuurteller').value)||1;
+  save(); toast('Instellingen opgeslagen');
+}
+
+/* ===================================================================
+   IMPORT / EXPORT / WIPE
+   =================================================================== */
+function exportData(){
+  const naam = `booth-backup-${new Date().toISOString().slice(0,10)}.json`;
+  const raw = JSON.stringify(data, null, 2);
+  if (runningInTauri) {
+    tauriInvoke('export_backup', { contents: raw, filename: naam })
+      .then(pad => { if(pad && pad.trim()) toast('Back-up opgeslagen'); })
+      .catch(e => { console.error('Back-up mislukt', e); toast('Back-up mislukt'); });
+  } else {
+    const blob = new Blob([raw], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = naam;
+    a.click();
+    toast('Back-up gedownload');
+  }
+}
+function applyImport(rawText){
+  try {
+    const imported = JSON.parse(rawText);
+    if(!imported.settings && !imported.gigs)
+      throw new Error('Geen geldig back-upbestand');
+    if(!confirm('Dit vervangt al je huidige data. Doorgaan?')) return;
+    data = {
+      settings: { ...defaultData.settings, ...(imported.settings||{}) },
+      gigs: imported.gigs||[], kosten: imported.kosten||[],
+      facturen: imported.facturen||[], ritten: imported.ritten||[],
+      klanten: imported.klanten||[]
+    };
+    save(); render(); toast('Back-up geïmporteerd');
+  } catch(err){ alert('Importeren mislukt: '+err.message); }
+}
+// In de Tauri-app gebruiken we een native bestandsvenster (WKWebView blokkeert
+// een programmatische klik op een verborgen <input type=file>).
+function startImport(){
+  if(runningInTauri){
+    tauriInvoke('import_backup')
+      .then(raw => { if(raw && raw.trim()) applyImport(raw); })
+      .catch(err => alert('Importeren mislukt: ' + err));
+  } else {
+    document.getElementById('importFile').click();
+  }
+}
+function importData(e){            // browser-terugval via <input type=file>
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => applyImport(reader.result);
+  reader.readAsText(file);
+  e.target.value = '';
+}
+function wipeAll(){
+  if(!confirm('ALLE data wordt definitief verwijderd. Heb je een back-up? Doorgaan?')) return;
+  if(!confirm('Echt zeker weten?')) return;
+  data = structuredClone(defaultData);
+  save(); render(); toast('Alle data gewist');
+}
+
+/* ===================================================================
+   INIT
+   =================================================================== */
+document.getElementById('nav').addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  currentView = btn.dataset.view;
+  render();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+loadData().then(render);
+
+// PWA: registreer de service worker (alleen in de browser/op de iPhone, niet in de Mac-app).
+if(!runningInTauri && 'serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

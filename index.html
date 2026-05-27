@@ -394,6 +394,10 @@
 /* ---------- Data ---------- */
 const STORE_KEY = 'booth_dj_data_v1';
 
+/* ---------- Cloud-sync (Supabase) ---------- */
+const SUPABASE_URL = 'https://esldvomhhgrcjykajznu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ydSJ_uuMJvuuEFDauL5DZw_E76Ttkbn';   // publishable key: veilig in client-code
+
 const defaultData = {
   settings: {
     artiestennaam: '',
@@ -408,7 +412,8 @@ const defaultData = {
     telefoon: '',
     kmtarief: 0.23,        // € per km (aftrekbaar, controleer actueel tarief)
     factuurprefix: 'DJ',
-    factuurteller: 1
+    factuurteller: 1,
+    synccode: ''           // gedeelde geheime code om Mac en iPhone te koppelen
   },
   gigs: [],      // {id, datum, opdrachtgever, locatie, bedrag, btw, betaald}
   kosten: [],    // {id, datum, omschrijving, categorie, bedrag, btw}
@@ -450,13 +455,72 @@ async function loadData() {
     data = parseStored(localStorage.getItem(STORE_KEY));
   }
 }
-function save() {
+function saveLocal() {
   const raw = JSON.stringify(data);
   if (runningInTauri) {
     tauriInvoke('save_data', { contents: raw }).catch(e=>console.error('Opslaan mislukt', e));
   } else {
     localStorage.setItem(STORE_KEY, raw);
   }
+}
+let _pushTimer;
+function save() {
+  saveLocal();
+  // wijziging (vertraagd) naar de cloud sturen als er een sync-code is ingesteld
+  if ((data.settings.synccode||'').trim()) {
+    clearTimeout(_pushTimer);
+    _pushTimer = setTimeout(() => { cloudPush().catch(e=>console.error('Sync-upload mislukt', e)); }, 1500);
+  }
+}
+
+/* ---------- Cloud-sync ---------- */
+async function cloudCall(fn, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error('Cloud-fout ' + r.status);
+  return r.json();
+}
+async function cloudPush() {
+  const code = (data.settings.synccode||'').trim();
+  if (!code) return;
+  const ts = await cloudCall('booth_save', { p_code: code, p_data: data });
+  if (typeof ts === 'string') localStorage.setItem('booth_last_sync', ts);
+}
+async function cloudPull() {
+  const code = (data.settings.synccode||'').trim();
+  if (!code) return null;
+  const rows = await cloudCall('booth_load', { p_code: code });
+  return (rows && rows.length) ? rows[0] : null;   // { data, updated_at } of null
+}
+function adoptCloud(row) {
+  const c = row.data || {};
+  data = {
+    settings: { ...defaultData.settings, ...(c.settings||{}), synccode: data.settings.synccode },
+    gigs: c.gigs||[], kosten: c.kosten||[], facturen: c.facturen||[], ritten: c.ritten||[], klanten: c.klanten||[]
+  };
+  localStorage.setItem('booth_last_sync', row.updated_at);
+  saveLocal();
+  render();
+}
+async function syncNow(silent) {
+  const code = (data.settings.synccode||'').trim();
+  if (!code) { if(!silent) toast('Vul eerst een sync-code in (Instellingen)'); return; }
+  if (!navigator.onLine) { if(!silent) toast('Geen internet'); return; }
+  try {
+    const row = await cloudPull();
+    const leeg = !(data.gigs.length||data.kosten.length||data.facturen.length||data.ritten.length||data.klanten.length);
+    if (!row) {                              // niets in de cloud -> upload lokaal
+      if (!leeg) await cloudPush();
+    } else {
+      const last = localStorage.getItem('booth_last_sync') || '';
+      if (leeg || row.updated_at > last) adoptCloud(row);   // cloud is nieuwer -> overnemen
+      else await cloudPush();                                // lokaal is nieuwer -> uploaden
+    }
+    if (!silent) toast('Synchronisatie klaar');
+  } catch(e) { console.error('Sync mislukt', e); if(!silent) toast('Sync mislukt'); }
 }
 
 /* ---------- Helpers ---------- */
@@ -940,6 +1004,26 @@ const views = {
         </div>
         <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">
           Het kilometertarief verandert soms per jaar — controleer het actuele bedrag bij de Belastingdienst.</p>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="section-title">Synchronisatie (Mac ↔ iPhone)</div>
+        <p style="font-size:13px;color:var(--ink-dim);margin-bottom:12px;">
+          Zet op beide apparaten dezelfde geheime sync-code. Daarna worden je gegevens automatisch
+          via de cloud gedeeld tussen Mac en iPhone.</p>
+        <div class="form-row">
+          <div class="field" style="flex:3"><label>Sync-code (geheim)</label>
+            <input id="set_synccode" value="${esc(s.synccode||'')}" placeholder="bijv. booth-xxxxxxxx"></div>
+          <div class="field" style="flex:1;min-width:120px;justify-content:flex-end">
+            <button class="btn" type="button" onclick="genSyncCode()">Nieuwe code</button></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;">
+          <button class="btn primary" type="button" onclick="syncManual()">Nu synchroniseren</button>
+          <span style="font-size:11.5px;color:var(--ink-faint)">${localStorage.getItem('booth_last_sync') ? 'Laatst gesynct: '+new Date(localStorage.getItem('booth_last_sync')).toLocaleString('nl-NL') : 'Nog niet gesynct'}</span>
+        </div>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:10px;">
+          Genereer de code op je Mac en kopieer 'm exact naar je iPhone (zelfde code). Bewerk niet tegelijk
+          offline op twee apparaten — de laatste opslag wint. Je gegevens staan dan in jouw Supabase-cloud.</p>
       </div>
 
       <div class="card" style="margin-top:16px;">
@@ -1479,11 +1563,22 @@ async function factuurNaarPdfDownloads(f){
 /* ---- Instellingen opslaan ---- */
 function saveSettings(){
   const keys = ['artiestennaam','eigennaam','adres','postcode','plaats','kvk',
-    'btwid','iban','email','telefoon','factuurprefix'];
+    'btwid','iban','email','telefoon','factuurprefix','synccode'];
   keys.forEach(k=>{ data.settings[k] = document.getElementById('set_'+k).value.trim(); });
   data.settings.kmtarief = parseFloat(document.getElementById('set_kmtarief').value)||0;
   data.settings.factuurteller = parseInt(document.getElementById('set_factuurteller').value)||1;
   save(); toast('Instellingen opgeslagen');
+}
+function genSyncCode(){
+  const code = 'booth-' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'') : (Math.random().toString(36).slice(2)+Date.now().toString(36)));
+  const el = document.getElementById('set_synccode');
+  if(el) el.value = code;
+}
+async function syncManual(){
+  saveSettings();          // slaat de ingevulde sync-code op
+  toast('Synchroniseren...');
+  await syncNow(false);
+  render();                // ververst de weergave (en de 'laatst gesynct'-tijd)
 }
 
 /* ===================================================================
@@ -1557,7 +1652,7 @@ document.getElementById('nav').addEventListener('click', e=>{
 });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
-loadData().then(render);
+loadData().then(()=>{ render(); syncNow(true); });   // bij opstart stil synchroniseren als er een code is
 
 // PWA: registreer de service worker (alleen in de browser/op de iPhone, niet in de Mac-app).
 if(!runningInTauri && 'serviceWorker' in navigator){
